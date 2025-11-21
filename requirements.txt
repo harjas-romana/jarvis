@@ -1,0 +1,30 @@
+# --- THE BRAIN (LLM & Graph Orchestration) ---
+groq
+langchain
+langchain-groq
+langgraph
+langsmith
+pydantic>=2.0.0
+
+# --- THE MEMORY (GraphRAG) ---
+neo4j
+chromadb
+
+# --- THE SENSORY MATRIX (Audio & Vision) ---
+pyaudio
+pvporcupine
+faster-whisper
+pyannote.audio
+torch
+torchaudio
+scipy
+elevenlabs
+
+# --- THE HANDS (Tools & Sandboxing) ---
+docker
+playwright
+beautifulsoup4
+
+# --- SYSTEM UI & UTILS ---
+python-dotenv
+rich
