@@ -27,3 +27,12 @@ logs/
 config/chroma/
 sandbox/temp_workspace/
 .env
+v2.0/**/__pycache__/
+v2.0/memory/chroma_db/
+v2.0/knowledge_base/*.pdf
+v2.0/knowledge_base/spider_*.txt
+v2.0/**/__pycache__/
+v2.0/memory/chroma_db/
+v2.0/knowledge_base/*.pdf
+v2.0/knowledge_base/spider_*.txt
+v2.0/knowledge_base/task_*.txt
