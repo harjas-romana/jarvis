@@ -33,56 +33,52 @@ class CognitiveEngine:
         
         self.short_term_memory = [self.system_prompt]
 
-    def process(self, user_input: str) -> str:
+    def process(self, query: str) -> str:
+        self.short_term_memory.append(HumanMessage(content=query))
+        
         try:
-            past_context = self.memory_db.search_memory(user_input, n_results=1) # Reduced vector fetch to save tokens
+            max_loops = 20 # Safety limit to prevent infinite click loops
+            current_loop = 0
             
-            if past_context:
-                enriched_input = f"[Memory]: {past_context}\n\nMr. Harjas: {user_input}"
-            else:
-                enriched_input = f"Mr. Harjas: {user_input}"
-
-            self.short_term_memory.append(HumanMessage(content=enriched_input))
-            
-            # [THE TOKEN DIET]: Shrink working memory to 6 items to prevent exponential token bleed
-            if len(self.short_term_memory) > 6:
-                self.short_term_memory = [self.system_prompt] + self.short_term_memory[-5:]
+            while current_loop < max_loops:
+                current_loop += 1
                 
-            response = self.llm_with_tools.invoke(self.short_term_memory)
-            self.short_term_memory.append(response)
-            
-            if response.tool_calls:
+                # 1. Ask Groq what to do next
+                response = self.llm_with_tools.invoke(self.short_term_memory)
+                self.short_term_memory.append(response)
+                
+                # 2. If Groq didn't call a tool, it means it is actually speaking to you!
+                if not getattr(response, "tool_calls", None):
+                    # --- THE SANITIZER ---
+                    # Clean the memory so the next turn doesn't crash
+                    sanitized_memory = []
+                    for msg in self.short_term_memory:
+                        if msg.type in ["system", "human"]:
+                            sanitized_memory.append(msg)
+                        elif msg.type == "ai" and not getattr(msg, "tool_calls", None):
+                            sanitized_memory.append(msg)
+                    
+                    self.short_term_memory = sanitized_memory
+                    
+                    # Return the actual spoken text
+                    return response.content
+                    
+                # 3. If Groq DID call a tool, execute it and loop back around
                 for tool_call in response.tool_calls:
                     tool_name = tool_call["name"]
                     tool_args = tool_call["args"]
-                    tool_id = tool_call["id"]
                     
-                    print(f"\n[System] Executing Tool: {tool_name}")
+                    # This print will now show you exactly what he is targeting
+                    print(f"\n[System] Executing Tool: {tool_name} | Args: {tool_args}")
                     
-                    try:
-                        if tool_name in self.tool_map:
-                            result = self.tool_map[tool_name].invoke(tool_args)
-                            tool_msg = ToolMessage(content=str(result), tool_call_id=tool_id, name=tool_name)
-                        else:
-                            tool_msg = ToolMessage(content=f"Error: Tool {tool_name} not found.", tool_call_id=tool_id, name=tool_name)
-                    except Exception as e:
-                        tool_msg = ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=tool_id, name=tool_name)
+                    if tool_name in self.tool_map:
+                        tool_result = self.tool_map[tool_name].invoke(tool_args)
+                    else:
+                        tool_result = f"Error: Tool {tool_name} not found."
                         
-                    self.short_term_memory.append(tool_msg)
-                
-                # Concise guardrail
-                guardrail = HumanMessage(content="[INTERNAL DIRECTIVE]: Read the tool response above. Extract the exact data requested and answer concisely. No fluff.")
-                self.short_term_memory.append(guardrail)
+                    self.short_term_memory.append(ToolMessage(content=str(tool_result), tool_call_id=tool_call["id"]))
                     
-                final_response = self.llm_with_tools.invoke(self.short_term_memory)
-                self.short_term_memory.append(final_response)
-                final_text = final_response.content.strip()
-            else:
-                final_text = response.content.strip()
-
-            self.memory_db.store_interaction("user", user_input)
-            self.memory_db.store_interaction("jarvis", final_text)
-
-            return final_text
+            return "Sir, I exceeded my maximum autonomous loop limit of 5 consecutive actions."
+            
         except Exception as e:
-            return f"<emotion value=\"apologetic\"/> Sir, I encountered a system error: {str(e)}"
+            return f"Sir, I encountered a system error: {str(e)}"
