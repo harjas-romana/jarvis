@@ -1,0 +1,9 @@
+langchain>=0.1.0
+langchain-groq
+langgraph
+chromadb
+playwright
+psutil
+rich
+python-dotenv
+pydantic
